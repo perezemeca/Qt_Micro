@@ -214,7 +214,7 @@ void MainWindow::SendCmd(uint8_t *buf, uint8_t length){
     uint8_t cks, i;
     QString strHex;
 
-    if(!QSerialPort1->isOpen())
+    if((!QSerialPort1->isOpen()) && (!QUdpSocket1->isOpen()))
         return;
     tx[0] = 'U';
     tx[1] = 'N';
@@ -237,7 +237,6 @@ void MainWindow::SendCmd(uint8_t *buf, uint8_t length){
     }
     if(QUdpSocket1->isOpen()){
         QUdpSocket1->writeDatagram((char *) tx,length+7,hostAddress,hostPort);
-        QUdpSocket1->writeDatagram((char *)tx,length+7,hostAddress,hostPort);
     }
 }
 
