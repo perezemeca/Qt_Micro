@@ -23,6 +23,7 @@ MainWindow::MainWindow(QWidget *parent):
     ui->comboBox->addItem("Constantes Kp,Ki,Kd", 0xE2);
     ui->comboBox->addItem("Parada de motores", 0xA2);
 
+//Timer cada 10ms
     QTimer1->start(10);
     time1=0;
 
@@ -75,7 +76,7 @@ void MainWindow::OnQUdpSocket1Rx(){
  */
 
 void MainWindow::OnQTimer1(){
-//    uint8_t buf[24];
+    uint8_t buf[24];
 
     time1 ++;
 
@@ -85,22 +86,26 @@ void MainWindow::OnQTimer1(){
             header = 0;
         }
     }
+    if(time1 >= 200){
+        if((QUdpSocket1->isOpen()) && (FIRSTALIVE)){
+            switch (Dato) {
+                case 0:
+                    buf[0] = 0xA0;
+                    SendCmd(buf,1);
+                    Dato++;
+                    time1 = 0;
+                break;
 
-//    if(time1 == 19){
-//        buf[0] = 0xA4;
-//        SendCmd(buf,1);
-//        time1 = 0;
-//    }
+                case 1:
+                    buf[0] = 0xF0;
+                    SendCmd(buf,1);
+                    Dato = 0;
+                    time1 = 0;
+                break;
+            }
+        }
+    }
 
-//    if(time1 == 18){
-//        buf[0] = 0xA3;
-//        SendCmd(buf,1);
-//    }
-//    if(time1 == 50){
-//        time1 = 0;
-//        buf[0] = 0XA0;
-//        SendCmd(buf,1);
-//    }
 }
 /*!
  * \brief MainWindow::DecodeHeader
@@ -210,23 +215,23 @@ void MainWindow::OnQSerialPort1Rx(){
  */
 
 void MainWindow::SendCmd(uint8_t *buf, uint8_t length){
-    uint8_t tx[24];
-    uint8_t cks, i;
-    QString strHex;
+    uint8_t tx[24], cks, i;
+    cks = 0;
+    i = 0;
 
-    if(!QSerialPort1->isOpen())
+    if((!QSerialPort1->isOpen()) && (!QUdpSocket1->isOpen()))
         return;
     tx[0] = 'U';
     tx[1] = 'N';
     tx[2] = 'E';
     tx[3] = 'R';
-    tx[4] = length + 1;
+    tx[4] = length+1;
     tx[5] = ':';
 
-    memcpy(&tx[6], buf, length);
+    for(i=0; i<length; i++){
+        tx[6+i] = buf[i];
+    }
 
-    cks = 0;
-    i = 0;
     for (i=0; i<(length+6); i++) {
         cks ^= tx[i];
     }
@@ -237,7 +242,6 @@ void MainWindow::SendCmd(uint8_t *buf, uint8_t length){
     }
     if(QUdpSocket1->isOpen()){
         QUdpSocket1->writeDatagram((char *) tx,length+7,hostAddress,hostPort);
-        QUdpSocket1->writeDatagram((char *)tx,length+7,hostAddress,hostPort);
     }
 }
 
@@ -261,23 +265,19 @@ void MainWindow::on_EnviarTx_clicked()
             buf[0] = cmd;
             SendCmd(buf,1);
         break;
-        case 0xA0:                  //VALOR DE SENSORES
-            ui->plainTextEdit->appendPlainText("SENSORES???");
-            buf[0] = cmd;
-            SendCmd(buf,1);
-        break;
+
         case 0xA1:
             buf[0] = cmd;
-            w.i32 = ui->verticalSlider->value();            //Motor izquierdo
-            buf[1]= w.i8[0];
-            buf[2]= w.i8[1];
-            buf[3]= w.i8[2];
-            buf[4]= w.i8[3];
-            w.i32 = ui->verticalSlider_2->value();          //Motor derecho
-            buf[5]= w.i8[0];
-            buf[6]= w.i8[1];
-            buf[7]= w.i8[2];
-            buf[8]= w.i8[3];
+            w.u32 = ui->verticalSlider->value();            //Motor izquierdo
+            buf[1]= w.u8[0];
+            buf[2]= w.u8[1];
+            buf[3]= w.u8[2];
+            buf[4]= w.u8[3];
+            w.u32 = ui->verticalSlider_2->value();          //Motor derecho
+            buf[5]= w.u8[0];
+            buf[6]= w.u8[1];
+            buf[7]= w.u8[2];
+            buf[8]= w.u8[3];
             SendCmd(buf,9);
         break;
 
@@ -294,46 +294,86 @@ void MainWindow::DecodeCmd(uint8_t *RX){
     QString aux;
     switch(RX[0]){
         case 0xA0:
-            w.u8[0] = RX[1];
-            w.u8[1] = RX[2];
-            w.u8[2] = RX[3];
-            w.u8[3] = RX[4];
-            w.u8[4] = RX[5];
-            w.u8[5] = RX[6];
-            w.u8[6] = RX[7];
-            w.u8[7] = RX[8];
-            w.u8[8] = RX[9];
-            w.u8[9] = RX[10];
-            w.u8[10] = RX[11];
-            w.u8[11] = RX[12];
-            w.u8[12] = RX[13];
-            w.u8[13] = RX[14];
-            w.u8[14] = RX[15];
-            w.u8[15] = RX[16];
-            ui->label_IR1->clear();
-            ui->label_IR1->setText(QString::number(w.u16[0]));
-            ui->progressBar_IR1->setValue((w.u16[0]*100)/4096);
-            ui->label_IR2->clear();
-            ui->label_IR2->setText(QString::number(w.u16[1]));
-            ui->progressBar_IR2->setValue((w.u16[1]*100)/4096);
-            ui->label_IR3->clear();
-            ui->label_IR3->setText(QString::number(w.u16[2]));
-            ui->progressBar_IR3->setValue((w.u16[2]*100)/4096);
-            ui->label_IR4->clear();
-            ui->label_IR4->setText(QString::number(w.u16[3]));
-            ui->progressBar_IR4->setValue((w.u16[3]*100)/4096);
-            ui->label_IR5->clear();
-            ui->label_IR5->setText(QString::number(w.u16[4]));
-            ui->progressBar_IR5->setValue((w.u16[4]*100)/4096);
-            ui->label_IR6->clear();
-            ui->label_IR6->setText(QString::number(w.u16[5]));
-            ui->progressBar_IR6->setValue((w.u16[5]*100)/4096);
-            ui->label_IR7->clear();
-            ui->label_IR7->setText(QString::number(w.u16[6]));
-            ui->progressBar_IR7->setValue((w.u16[6]*100)/4096);
-            ui->label_IR8->clear();
-            ui->label_IR8->setText(QString::number(w.u16[7]));
-            ui->progressBar_IR8->setValue((w.u16[7]*100)/4096);
+        w.u8[0] = RX[1];
+        w.u8[1] = RX[2];
+        w.u8[2] = RX[3];
+        w.u8[3] = RX[4];
+        ui->label_IR1->clear();
+        ui->label_IR1->setText(QString::number(w.u16[0]));
+        ui->progressBar_IR1->setValue((w.u16[0]*100)/4096);
+        ui->label_IR2->clear();
+        ui->label_IR2->setText(QString::number(w.u16[1]));
+        ui->progressBar_IR2->setValue((w.u16[1]*100)/4096);
+        w.u8[0] = RX[5];
+        w.u8[1] = RX[6];
+        w.u8[2] = RX[7];
+        w.u8[3] = RX[8];
+        ui->label_IR3->clear();
+        ui->label_IR3->setText(QString::number(w.u16[0]));
+        ui->progressBar_IR3->setValue((w.u16[0]*100)/4096);
+        ui->label_IR4->clear();
+        ui->label_IR4->setText(QString::number(w.u16[1]));
+        ui->progressBar_IR4->setValue((w.u16[1]*100)/4096);
+        w.u8[0] = RX[9];
+        w.u8[1] = RX[10];
+        w.u8[2] = RX[11];
+        w.u8[3] = RX[12];
+        ui->label_IR5->clear();
+        ui->label_IR5->setText(QString::number(w.u16[0]));
+        ui->progressBar_IR5->setValue((w.u16[0]*100)/4096);
+        ui->label_IR6->clear();
+        ui->label_IR6->setText(QString::number(w.u16[1]));
+        ui->progressBar_IR6->setValue((w.u16[1]*100)/4096);
+        w.u8[0] = RX[13];
+        w.u8[1] = RX[14];
+        w.u8[2] = RX[15];
+        w.u8[3] = RX[16];
+        ui->label_IR7->clear();
+        ui->label_IR7->setText(QString::number(w.u16[0]));
+        ui->progressBar_IR7->setValue((w.u16[0]*100)/4096);
+        ui->label_IR8->clear();
+        ui->label_IR8->setText(QString::number(w.u16[1]));
+        ui->progressBar_IR8->setValue((w.u16[1]*100)/4096);
+//            w.u8[0] = RX[1];
+//            w.u8[1] = RX[2];
+//            w.u8[2] = RX[3];
+//            w.u8[3] = RX[4];
+//            w.u8[4] = RX[5];
+//            w.u8[5] = RX[6];
+//            w.u8[6] = RX[7];
+//            w.u8[7] = RX[8];
+//            w.u8[8] = RX[9];
+//            w.u8[9] = RX[10];
+//            w.u8[10] = RX[11];
+//            w.u8[11] = RX[12];
+//            w.u8[12] = RX[13];
+//            w.u8[13] = RX[14];
+//            w.u8[14] = RX[15];
+//            w.u8[15] = RX[16];
+//            ui->label_IR1->clear();
+//            ui->label_IR1->setText(QString::number(w.u16[0]));
+//            ui->progressBar_IR1->setValue((w.u16[0]*100)/4096);
+//            ui->label_IR2->clear();
+//            ui->label_IR2->setText(QString::number(w.u16[1]));
+//            ui->progressBar_IR2->setValue((w.u16[1]*100)/4096);
+//            ui->label_IR3->clear();
+//            ui->label_IR3->setText(QString::number(w.u16[2]));
+//            ui->progressBar_IR3->setValue((w.u16[2]*100)/4096);
+//            ui->label_IR4->clear();
+//            ui->label_IR4->setText(QString::number(w.u16[3]));
+//            ui->progressBar_IR4->setValue((w.u16[3]*100)/4096);
+//            ui->label_IR5->clear();
+//            ui->label_IR5->setText(QString::number(w.u16[4]));
+//            ui->progressBar_IR5->setValue((w.u16[4]*100)/4096);
+//            ui->label_IR6->clear();
+//            ui->label_IR6->setText(QString::number(w.u16[5]));
+//            ui->progressBar_IR6->setValue((w.u16[5]*100)/4096);
+//            ui->label_IR7->clear();
+//            ui->label_IR7->setText(QString::number(w.u16[6]));
+//            ui->progressBar_IR7->setValue((w.u16[6]*100)/4096);
+//            ui->label_IR8->clear();
+//            ui->label_IR8->setText(QString::number(w.u16[7]));
+//            ui->progressBar_IR8->setValue((w.u16[7]*100)/4096);
         break;
         case 0xA1:
             if(RX[1] == 0x0D)
@@ -341,8 +381,10 @@ void MainWindow::DecodeCmd(uint8_t *RX){
         break;
 
         case 0xF0:
-            if(RX[1] == 0x0D)
+            if(RX[1] == 0x0D){
                 ui->plainTextEdit->appendPlainText("I'M ALIVE "+QString::number(Counter++));
+                FIRSTALIVE = 1;
+            }
         break;
 
         case 0xFF:
@@ -414,13 +456,8 @@ void MainWindow::on_pushButton_3_clicked()
 
 void MainWindow::on_verticalSlider_2_valueChanged(int value)
 {
-    uint8_t buf[24];
-    ui->label_19->clear();
-    ui->label_19->setText(QString::number(value));
-    buf[0] = 0xA2;
-    w.i8[0] = ui->verticalSlider_2->value();
-    buf[1] = w.i8[0];
-    SendCmd(buf,2);
+    ui->lineEdit_3->clear();
+    ui->lineEdit_3->setText(QString::number(value));
 }
 
 /*!
@@ -431,18 +468,8 @@ void MainWindow::on_verticalSlider_2_valueChanged(int value)
 
 void MainWindow::on_verticalSlider_valueChanged(int value)
 {
-    uint8_t buf[24];
-    ui->label_10->clear();
-    ui->label_10->setText(QString::number(value));
-    buf[0] = 0xA3;
-    w.i8[0] = ui->verticalSlider->value();
-    buf[1] = w.i8[0];
-    SendCmd(buf,2);
-}
-
-void MainWindow::on_comboBox_2_activated(const QString &arg1)
-{
-
+    ui->lineEdit_2->clear();
+    ui->lineEdit_2->setText(QString::number(value));
 }
 
 void MainWindow::on_pushButton_5_clicked()
@@ -470,4 +497,14 @@ void MainWindow::on_pushButton_5_clicked()
         ui->pushButton_5->setText("CERRAR");
 
     }
+}
+
+void MainWindow::on_lineEdit_2_editingFinished()
+{
+    ui->verticalSlider->setValue(ui->lineEdit_2->text().toInt());
+}
+
+void MainWindow::on_lineEdit_3_editingFinished()
+{
+    ui->verticalSlider_2->setValue(ui->lineEdit_3->text().toInt());
 }
