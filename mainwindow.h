@@ -50,9 +50,12 @@ private slots:
 
     void on_lineEdit_3_editingFinished();
 
+    void clean();
+
+
+    void on_pushButton_2_clicked();
 
 private:
-#define FIRSTALIVE flag1.bit.b0
 
     typedef union{
         uint8_t     u8[4];
@@ -84,8 +87,8 @@ private:
     QTimer *QTimer1;
     QSerialPort *QSerialPort1;
 
-    uint8_t rx[256], header, timeout, nbytes, cks, index, Dato;
-    uint16_t Counter = 0, time1;
+    uint8_t rx[256], header, timeout, nbytes, cks, index, time1;
+    uint16_t Counter = 0, Counter_2 = 0;
 
     QUdpSocket *QUdpSocket1;
     QHostAddress hostAddress;     //Direccion de quien envio
@@ -93,6 +96,8 @@ private:
 
     _work w;
     _sFlag flag1;
+
+    uint8_t FIRSTALIVE = 0;
 
     void DecodeCmd(uint8_t *RX);
     void SendCmd(uint8_t *buf, uint8_t length);
